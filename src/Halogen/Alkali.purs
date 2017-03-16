@@ -10,6 +10,8 @@ module Halogen.Alkali
 
   , QueryInt
 
+  , QueryChar
+
   , QueryString
 
   , QueryTuple
@@ -21,6 +23,7 @@ import Data.Either (Either)
 import Data.Functor.Coproduct (Coproduct)
 import Data.Int as Int
 import Data.Maybe (Maybe(..))
+import Data.String as String
 import Data.Tuple (Tuple(..), fst, snd)
 import Halogen.Component (Component, ComponentDSL, ComponentHTML, ParentDSL, ParentHTML, component, parentComponent)
 import Halogen.Component.ChildPath (cp1, cp2)
@@ -135,6 +138,38 @@ instance toComponentInt :: ToComponent Int QueryInt where
 
     receiver :: Int -> Maybe (QueryInt Unit)
     receiver = E.input ReceiveInt
+
+--------------------------------------------------------------------------------
+
+data QueryChar a
+  = ReceiveChar Char a
+  | ChangeChar String a
+
+instance toComponentChar :: ToComponent Char QueryChar where
+  toComponent _ = component { initialState, render, eval, receiver }
+    where
+    initialState :: Char -> Char
+    initialState = id
+
+    render :: Char -> ComponentHTML QueryChar
+    render value =
+      H.input [ P.type_ P.InputText
+              , P.value (String.singleton value)
+              , E.onValueChange (E.input ChangeChar)
+              ]
+
+    eval :: ∀ m. QueryChar ~> ComponentDSL Char QueryChar Char m
+    eval (ReceiveChar value next) = next <$ State.put value
+    eval (ChangeChar valueS next) = do
+      case String.charAt 0 valueS of
+        Just value -> do
+          State.put value
+          raise value
+        Nothing -> pure unit
+      pure next
+
+    receiver :: Char -> Maybe (QueryChar Unit)
+    receiver = E.input ReceiveChar
 
 --------------------------------------------------------------------------------
 

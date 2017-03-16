@@ -11,6 +11,7 @@
     "purescript-proxy": "^1.0.0",
     "purescript-transformers": "^2.2.0",
     "purescript-tuples": "^3.2.0",
-    "purescript-integers": "^2.1.1"
+    "purescript-integers": "^2.1.1",
+    "purescript-strings": "^2.1.0"
   }
 }
