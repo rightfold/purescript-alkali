@@ -15,8 +15,12 @@ module Halogen.Alkali
   , QueryString
 
   , QueryTuple
+
+  , QueryColor
   ) where
 
+import Color (Color)
+import Color as Color
 import Control.Monad.State.Class as State
 import Data.Const (Const)
 import Data.Either (Either)
@@ -238,3 +242,35 @@ instance toComponentTuple :: (ToComponent f fq, ToComponent s sq)
 
     receiver :: Tuple f s -> Maybe (QueryTuple f s Unit)
     receiver = E.input ReceiveTuple
+
+--------------------------------------------------------------------------------
+
+data QueryColor a
+  = ReceiveColor Color a
+  | ChangeColor String a
+
+instance toComponentColor :: ToComponent Color QueryColor where
+  toComponent _ = component { initialState, render, eval, receiver }
+    where
+    initialState :: Color -> Color
+    initialState = id
+
+    render :: Color -> ComponentHTML QueryColor
+    render value =
+      H.input [ P.type_ P.InputColor
+              , P.value (Color.toHexString value)
+              , E.onValueChange (E.input ChangeColor)
+              ]
+
+    eval :: ∀ m. QueryColor ~> ComponentDSL Color QueryColor Color m
+    eval (ReceiveColor value next) = next <$ State.put value
+    eval (ChangeColor valueS next) = do
+      case Color.fromHexString valueS of
+        Just value -> do
+          State.put value
+          raise value
+        Nothing -> pure unit
+      pure next
+
+    receiver :: Color -> Maybe (QueryColor Unit)
+    receiver = E.input ReceiveColor

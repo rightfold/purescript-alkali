@@ -12,6 +12,7 @@
     "purescript-transformers": "^2.2.0",
     "purescript-tuples": "^3.2.0",
     "purescript-integers": "^2.1.1",
-    "purescript-strings": "^2.1.0"
+    "purescript-strings": "^2.1.0",
+    "purescript-colors": "^2.2.0"
   }
 }
