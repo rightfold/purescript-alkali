@@ -14,6 +14,8 @@ module Halogen.Alkali
 
   , QueryString
 
+  , QueryOrdering
+
   , QueryTuple
 
   , QueryColor
@@ -203,6 +205,42 @@ instance toComponentString :: ToComponent String QueryString where
 
     receiver :: String -> Maybe (QueryString Unit)
     receiver = E.input ReceiveString
+
+--------------------------------------------------------------------------------
+
+data QueryOrdering a
+  = ReceiveOrdering Ordering a
+  | ChangeOrdering String a
+
+instance toComponentOrdering :: ToComponent Ordering QueryOrdering where
+  toComponent _ = component { initialState, render, eval, receiver }
+    where
+    initialState :: Ordering -> Ordering
+    initialState = id
+
+    render :: Ordering -> ComponentHTML QueryOrdering
+    render value =
+      H.select [E.onValueChange (E.input ChangeOrdering)]
+        [option LT "<", option EQ "=", option GT ">"]
+      where option o t =
+              H.option [ P.value (show o)
+                       , P.selected (o == value)
+                       ]
+                [H.text t]
+
+    eval :: ∀ m. QueryOrdering ~> ComponentDSL Ordering QueryOrdering Ordering m
+    eval (ReceiveOrdering value next) = next <$ State.put value
+    eval (ChangeOrdering valueS next) = do
+      let value = case valueS of
+            "LT" -> LT
+            "EQ" -> EQ
+            _    -> GT
+      State.put value
+      raise value
+      pure next
+
+    receiver :: Ordering -> Maybe (QueryOrdering Unit)
+    receiver = E.input ReceiveOrdering
 
 --------------------------------------------------------------------------------
 
