@@ -8,6 +8,8 @@ module Halogen.Alkali
 
   , QueryBoolean
 
+  , QueryInt
+
   , QueryString
 
   , QueryTuple
@@ -17,6 +19,7 @@ import Control.Monad.State.Class as State
 import Data.Const (Const)
 import Data.Either (Either)
 import Data.Functor.Coproduct (Coproduct)
+import Data.Int as Int
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), fst, snd)
 import Halogen.Component (Component, ComponentDSL, ComponentHTML, ParentDSL, ParentHTML, component, parentComponent)
@@ -100,6 +103,38 @@ instance toComponentBoolean :: ToComponent Boolean QueryBoolean where
 
     receiver :: Boolean -> Maybe (QueryBoolean Unit)
     receiver = E.input ReceiveBoolean
+
+--------------------------------------------------------------------------------
+
+data QueryInt a
+  = ReceiveInt Int a
+  | ChangeInt String a
+
+instance toComponentInt :: ToComponent Int QueryInt where
+  toComponent _ = component { initialState, render, eval, receiver }
+    where
+    initialState :: Int -> Int
+    initialState = id
+
+    render :: Int -> ComponentHTML QueryInt
+    render value =
+      H.input [ P.type_ P.InputNumber
+              , P.value (show value)
+              , E.onValueChange (E.input ChangeInt)
+              ]
+
+    eval :: ∀ m. QueryInt ~> ComponentDSL Int QueryInt Int m
+    eval (ReceiveInt value next) = next <$ State.put value
+    eval (ChangeInt valueS next) = do
+      case Int.fromString valueS of
+        Just value -> do
+          State.put value
+          raise value
+        Nothing -> pure unit
+      pure next
+
+    receiver :: Int -> Maybe (QueryInt Unit)
+    receiver = E.input ReceiveInt
 
 --------------------------------------------------------------------------------
 
