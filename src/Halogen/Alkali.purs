@@ -244,7 +244,7 @@ instance toComponentArray :: (Initial a, ToComponent a aq) => ToComponent (Array
 
     render :: ∀ m. Array a -> ParentHTML (QueryArray a) aq SlotArray m
     render value =
-      H.span []
+      H.div []
         [ H.ul [] (Array.mapWithIndex slot value)
         , H.button [E.onClick (E.input_ AddArray)] [H.text "+"]
         ]
@@ -325,7 +325,7 @@ instance toComponentTuple :: (ToComponent f fq, ToComponent s sq)
 
     render :: ∀ m. Tuple f s -> ParentHTML (QueryTuple f s) (ChildQueryTuple fq sq) SlotTuple m
     render value =
-      H.span []
+      H.div []
         [ H.slot' cp1 unit (toComponent (Proxy :: Proxy f)) (fst value) handleFst
         , H.slot' cp2 unit (toComponent (Proxy :: Proxy s)) (snd value) handleSnd
         ]
@@ -362,7 +362,7 @@ instance toComponentMaybe :: (Initial a, ToComponent a aq) => ToComponent (Maybe
 
     render :: ∀ m. Maybe a -> ParentHTML (QueryMaybe a) aq SlotMaybe m
     render value =
-      H.span [] $
+      H.div [] $
         [ H.input [ P.type_ P.InputCheckbox
                   , P.checked (isJust value)
                   , E.onChecked (E.input ToggleMaybe)
