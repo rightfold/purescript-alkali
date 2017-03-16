@@ -1,5 +1,8 @@
 module Halogen.Alkali
-  ( class ToComponent
+  ( class Initial
+  , initial
+
+  , class ToComponent
   , toComponent
 
   , QueryVoid
@@ -14,6 +17,8 @@ module Halogen.Alkali
 
   , QueryString
 
+  , QueryArray
+
   , QueryOrdering
 
   , QueryTuple
@@ -24,11 +29,12 @@ module Halogen.Alkali
 import Color (Color)
 import Color as Color
 import Control.Monad.State.Class as State
+import Data.Array as Array
 import Data.Const (Const)
 import Data.Either (Either)
 import Data.Functor.Coproduct (Coproduct)
 import Data.Int as Int
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String as String
 import Data.Tuple (Tuple(..), fst, snd)
 import Halogen.Component (Component, ComponentDSL, ComponentHTML, ParentDSL, ParentHTML, component, parentComponent)
@@ -40,6 +46,17 @@ import Halogen.HTML.Properties as P
 import Halogen.Query (action, raise)
 import Prelude
 import Type.Proxy (Proxy(..))
+
+--------------------------------------------------------------------------------
+
+class Initial a where
+  initial :: a
+
+instance initialUnit    :: Initial Unit      where initial = unit
+instance initialBoolean :: Initial Boolean   where initial = false
+instance initialInt     :: Initial Int       where initial = 0
+instance initialString  :: Initial String    where initial = ""
+instance initialArray   :: Initial (Array a) where initial = []
 
 --------------------------------------------------------------------------------
 
@@ -205,6 +222,47 @@ instance toComponentString :: ToComponent String QueryString where
 
     receiver :: String -> Maybe (QueryString Unit)
     receiver = E.input ReceiveString
+
+--------------------------------------------------------------------------------
+
+data QueryArray a n
+  = ReceiveArray (Array a) n
+  | ChangeArray Int a n
+  | AddArray n
+  | DeleteArray Int n
+
+type SlotArray = Int
+
+instance toComponentArray :: (Initial a, ToComponent a aq) => ToComponent (Array a) (QueryArray a) where
+  toComponent _ = parentComponent { initialState, render, eval, receiver }
+    where
+    initialState :: Array a -> Array a
+    initialState = id
+
+    render :: ∀ m. Array a -> ParentHTML (QueryArray a) aq SlotArray m
+    render value =
+      H.span []
+        [ H.ul [] (Array.mapWithIndex slot value)
+        , H.button [E.onClick (E.input_ AddArray)] [H.text "+"]
+        ]
+      where
+      slot i x =
+        H.li []
+          [ H.slot i (toComponent (Proxy :: Proxy a)) x (handle i)
+          , H.button [E.onClick (E.input_ (DeleteArray i))] [H.text "−"]
+          ]
+      handle i = Just <<< action <<< ChangeArray i
+
+    eval :: ∀ m. QueryArray a ~> ParentDSL (Array a) (QueryArray a) aq SlotArray (Array a) m
+    eval (ReceiveArray value next) = next <$ State.put value
+    eval (ChangeArray i value next) =
+      next <$ State.modify \a -> Array.updateAt i value a # fromMaybe a
+    eval (AddArray next) = next <$ State.modify (_ <> [initial])
+    eval (DeleteArray i next) =
+      next <$ State.modify \a -> Array.deleteAt i a # fromMaybe a
+
+    receiver :: Array a -> Maybe (QueryArray a Unit)
+    receiver = E.input ReceiveArray
 
 --------------------------------------------------------------------------------
 
