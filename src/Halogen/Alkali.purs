@@ -23,6 +23,8 @@ module Halogen.Alkali
 
   , QueryTuple
 
+  , QueryMaybe
+
   , QueryColor
   ) where
 
@@ -34,7 +36,7 @@ import Data.Const (Const)
 import Data.Either (Either)
 import Data.Functor.Coproduct (Coproduct)
 import Data.Int as Int
-import Data.Maybe (Maybe(..), fromMaybe)
+import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.String as String
 import Data.Tuple (Tuple(..), fst, snd)
 import Halogen.Component (Component, ComponentDSL, ComponentHTML, ParentDSL, ParentHTML, component, parentComponent)
@@ -52,11 +54,12 @@ import Type.Proxy (Proxy(..))
 class Initial a where
   initial :: a
 
-instance initialUnit    :: Initial Unit      where initial = unit
-instance initialBoolean :: Initial Boolean   where initial = false
-instance initialInt     :: Initial Int       where initial = 0
-instance initialString  :: Initial String    where initial = ""
-instance initialArray   :: Initial (Array a) where initial = []
+instance initialUnit     :: Initial Unit      where initial = unit
+instance initialBoolean  :: Initial Boolean   where initial = false
+instance initialInt      :: Initial Int       where initial = 0
+instance initialString   :: Initial String    where initial = ""
+instance initialArray    :: Initial (Array a) where initial = []
+instance initialOrdering :: Initial Ordering  where initial = EQ
 
 --------------------------------------------------------------------------------
 
@@ -338,6 +341,49 @@ instance toComponentTuple :: (ToComponent f fq, ToComponent s sq)
 
     receiver :: Tuple f s -> Maybe (QueryTuple f s Unit)
     receiver = E.input ReceiveTuple
+
+--------------------------------------------------------------------------------
+
+data QueryMaybe a n
+  = ReceiveMaybe (Maybe a) n
+  | ChangeMaybe (Maybe a) n
+  | ToggleMaybe Boolean n
+
+type SlotMaybe = Unit
+
+instance toComponentMaybe :: (Initial a, ToComponent a aq) => ToComponent (Maybe a) (QueryMaybe a) where
+  toComponent _ = parentComponent { initialState, render, eval, receiver }
+    where
+    initialState :: Maybe a -> Maybe a
+    initialState = id
+
+    render :: ∀ m. Maybe a -> ParentHTML (QueryMaybe a) aq SlotMaybe m
+    render value =
+      H.span [] $
+        [ H.input [ P.type_ P.InputCheckbox
+                  , P.checked (isJust value)
+                  , E.onChecked (E.input ToggleMaybe)
+                  ]
+        ] <> slot
+      where
+      slot = case value of
+        Just v -> [H.slot unit (toComponent (Proxy :: Proxy a)) v handle]
+        Nothing -> []
+      handle = Just <<< action <<< ChangeMaybe <<< Just
+
+    eval :: ∀ m. QueryMaybe a ~> ParentDSL (Maybe a) (QueryMaybe a) aq SlotMaybe (Maybe a) m
+    eval (ReceiveMaybe value next) = next <$ State.put value
+    eval (ChangeMaybe value next) = do
+      State.put value
+      raise value
+      pure next
+    eval (ToggleMaybe value next) =
+      if value
+        then eval $ ChangeMaybe (Just initial) next
+        else eval $ ChangeMaybe Nothing next
+
+    receiver :: Maybe a -> Maybe (QueryMaybe a Unit)
+    receiver = E.input ReceiveMaybe
 
 --------------------------------------------------------------------------------
 
