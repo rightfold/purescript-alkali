@@ -259,10 +259,13 @@ instance toComponentArray :: (Initial a, ToComponent a aq) => ToComponent (Array
     eval :: ∀ m. QueryArray a ~> ParentDSL (Array a) (QueryArray a) aq SlotArray (Array a) m
     eval (ReceiveArray value next) = next <$ State.put value
     eval (ChangeArray i value next) =
-      next <$ State.modify \a -> Array.updateAt i value a # fromMaybe a
-    eval (AddArray next) = next <$ State.modify (_ <> [initial])
+      next <$ modify \a -> Array.updateAt i value a # fromMaybe a
+    eval (AddArray next) = next <$ modify (_ <> [initial])
     eval (DeleteArray i next) =
-      next <$ State.modify \a -> Array.deleteAt i a # fromMaybe a
+      next <$ modify \a -> Array.deleteAt i a # fromMaybe a
+
+    modify :: ∀ m. (Array a -> Array a) -> ParentDSL (Array a) (QueryArray a) aq SlotArray (Array a) m Unit
+    modify f = State.modify f *> State.get >>= raise
 
     receiver :: Array a -> Maybe (QueryArray a Unit)
     receiver = E.input ReceiveArray
