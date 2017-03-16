@@ -13,5 +13,5 @@ import Type.Proxy (Proxy(..))
 main :: forall eff. Eff (HalogenEffects eff) Unit
 main = runHalogenAff $ awaitBody >>= runUI ui init
   where
-  ui = toComponent (Proxy :: Proxy (Tuple Boolean (Tuple Boolean (Tuple Boolean Boolean))))
-  init = Tuple false (Tuple false (Tuple false false))
+  ui = toComponent (Proxy :: Proxy (Tuple Boolean (Tuple String Unit)))
+  init = Tuple false (Tuple "" unit)

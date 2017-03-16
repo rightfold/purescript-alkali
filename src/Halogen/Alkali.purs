@@ -8,6 +8,8 @@ module Halogen.Alkali
 
   , QueryBoolean
 
+  , QueryString
+
   , QueryTuple
   ) where
 
@@ -98,6 +100,35 @@ instance toComponentBoolean :: ToComponent Boolean QueryBoolean where
 
     receiver :: Boolean -> Maybe (QueryBoolean Unit)
     receiver = E.input ReceiveBoolean
+
+--------------------------------------------------------------------------------
+
+data QueryString a
+  = ReceiveString String a
+  | ChangeString String a
+
+instance toComponentString :: ToComponent String QueryString where
+  toComponent _ = component { initialState, render, eval, receiver }
+    where
+    initialState :: String -> String
+    initialState = id
+
+    render :: String -> ComponentHTML QueryString
+    render value =
+      H.input [ P.type_ P.InputText
+              , P.value value
+              , E.onValueChange (E.input ChangeString)
+              ]
+
+    eval :: ∀ m. QueryString ~> ComponentDSL String QueryString String m
+    eval (ReceiveString value next) = next <$ State.put value
+    eval (ChangeString value next) = do
+      State.put value
+      raise value
+      pure next
+
+    receiver :: String -> Maybe (QueryString Unit)
+    receiver = E.input ReceiveString
 
 --------------------------------------------------------------------------------
 
