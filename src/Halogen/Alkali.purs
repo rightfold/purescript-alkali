@@ -43,10 +43,12 @@ import Data.Functor.Coproduct (Coproduct)
 import Data.Generic.Rep as G
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
+import Data.Newtype (wrap, unwrap)
 import Data.String as String
 import Data.Tuple (Tuple(..), fst, snd)
 import Halogen.Component (Component, ComponentDSL, ComponentHTML, ParentDSL, ParentHTML, component, parentComponent)
 import Halogen.Component.ChildPath (cp1, cp2)
+import Halogen.Component.Profunctor (dimapProComponent)
 import Halogen.HTML (HTML)
 import Halogen.HTML as H
 import Halogen.HTML.Events as E
@@ -445,26 +447,11 @@ class GenericToComponent a r where
   genericToComponent' :: ∀ m. Proxy r -> Component HTML (QueryGeneric a) a a m
 
 instance toComponentArgument :: (ToComponent a aq)
-                             => ToComponent (G.Argument a) (QueryGeneric (G.Argument a)) where
-  toComponent _ = parentComponent { initialState, render, eval, receiver }
-    where
-    initialState :: G.Argument a -> G.Argument a
-    initialState = id
-
-    render :: ∀ m. G.Argument a -> ParentHTML (QueryGeneric (G.Argument a)) aq Unit m
-    render (G.Argument value) =
-      H.slot unit (toComponent (Proxy :: Proxy a)) value handle
-      where handle = E.input $ ChangeGeneric <<< G.Argument
-
-    eval :: ∀ m. QueryGeneric (G.Argument a) ~> ParentDSL (G.Argument a) (QueryGeneric (G.Argument a)) aq Unit (G.Argument a) m
-    eval (ReceiveGeneric value next) = next <$ State.put value
-    eval (ChangeGeneric value next) = do
-      State.put value
-      raise value
-      pure next
-
-    receiver :: G.Argument a -> Maybe (QueryGeneric (G.Argument a) Unit)
-    receiver = E.input ReceiveGeneric
+                             => ToComponent (G.Argument a) aq where
+  toComponent _ = unwrap (dimapProComponent i o (wrap c))
+    where i (G.Argument x) = x
+          o = G.Argument
+          c = toComponent (Proxy :: Proxy a)
 
 instance toComponentProduct :: (ToComponent f fq, ToComponent s sq)
                             => ToComponent (G.Product f s) (QueryGeneric (G.Product f s)) where
