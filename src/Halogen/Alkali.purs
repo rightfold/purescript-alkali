@@ -431,7 +431,8 @@ instance toComponentColor :: ToComponent Color QueryColor where
 --------------------------------------------------------------------------------
 
 data QueryGeneric a n
-  = QueryGeneric Void
+  = ReceiveGeneric a n
+  | ChangeGeneric a n
 
 genericToComponent
   :: ∀ a r m
@@ -447,3 +448,26 @@ class GenericToComponent a r where
 
 class GenericToComponentArgument r where
   genericToComponentArgument' :: ∀ m. Proxy r -> Component HTML (QueryGeneric r) r r m
+
+instance genericToComponentArgumentArgument :: (ToComponent a aq)
+                                            => GenericToComponentArgument (G.Argument a) where
+  genericToComponentArgument' _ =
+    parentComponent { initialState, render, eval, receiver }
+    where
+    initialState :: G.Argument a -> G.Argument a
+    initialState = id
+
+    render :: ∀ m. G.Argument a -> ParentHTML (QueryGeneric (G.Argument a)) aq Unit m
+    render (G.Argument value) =
+      H.slot unit (toComponent (Proxy :: Proxy a)) value handle
+      where handle = E.input $ ChangeGeneric <<< G.Argument
+
+    eval :: ∀ m. QueryGeneric (G.Argument a) ~> ParentDSL (G.Argument a) (QueryGeneric (G.Argument a)) aq Unit (G.Argument a) m
+    eval (ReceiveGeneric value next) = next <$ State.put value
+    eval (ChangeGeneric value next) = do
+      State.put value
+      raise value
+      pure next
+
+    receiver :: G.Argument a -> Maybe (QueryGeneric (G.Argument a) Unit)
+    receiver = E.input ReceiveGeneric
