@@ -45,6 +45,7 @@ import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.Newtype (wrap, unwrap)
 import Data.String as String
+import Data.Symbol (class IsSymbol, SProxy(..), reflectSymbol)
 import Data.Tuple (Tuple(..), fst, snd)
 import Halogen.Component (Component, ComponentDSL, ComponentHTML, ParentDSL, ParentHTML, component, parentComponent)
 import Halogen.Component.ChildPath (cp1, cp2)
@@ -476,6 +477,31 @@ instance toComponentArgument :: (ToComponent a aq)
           o = G.Argument
           c = toComponent (Proxy :: Proxy a)
 
+instance toComponentField :: (IsSymbol n, ToComponent a aq)
+                          => ToComponent (G.Field n a) (QueryGeneric (G.Field n a)) where
+  toComponent _ = parentComponent { initialState, render, eval, receiver }
+    where
+    initialState :: G.Field n a -> G.Field n a
+    initialState = id
+
+    render :: ∀ m. G.Field n a -> ParentHTML (QueryGeneric (G.Field n a)) aq Unit m
+    render (G.Field value) =
+      H.label []
+        [ H.text (reflectSymbol (SProxy :: SProxy n))
+        , H.slot unit (toComponent (Proxy :: Proxy a)) value handle
+        ]
+      where handle = E.input $ ChangeGeneric <<< G.Field
+
+    eval :: ∀ m. QueryGeneric (G.Field n a) ~> ParentDSL (G.Field n a) (QueryGeneric (G.Field n a)) aq Unit (G.Field n a) m
+    eval (ReceiveGeneric value next) = next <$ State.put value
+    eval (ChangeGeneric value next) = do
+      State.put value
+      raise value
+      pure next
+
+    receiver :: G.Field n a -> Maybe (QueryGeneric (G.Field n a) Unit)
+    receiver = E.input ReceiveGeneric
+
 instance toComponentProduct :: (ToComponent f fq, ToComponent s sq)
                             => ToComponent (G.Product f s) (QueryGeneric (G.Product f s)) where
   toComponent _ = parentComponent { initialState, render, eval, receiver }
@@ -497,3 +523,10 @@ instance toComponentProduct :: (ToComponent f fq, ToComponent s sq)
 
     receiver :: G.Product f s -> Maybe (QueryGeneric (G.Product f s) Unit)
     receiver = E.input ReceiveGeneric
+
+instance toComponentRec :: (ToComponent a aq)
+                        => ToComponent (G.Rec a) aq where
+  toComponent _ = unwrap (dimapProComponent i o (wrap c))
+    where i (G.Rec x) = x
+          o = G.Rec
+          c = toComponent (Proxy :: Proxy a)
