@@ -446,6 +446,29 @@ genericToComponent _ = genericToComponent' (Proxy :: Proxy r)
 class GenericToComponent a r where
   genericToComponent' :: ∀ m. Proxy r -> Component HTML (QueryGeneric a) a a m
 
+instance genericToComponentConstructor :: (G.Generic a (G.Constructor n b), ToComponent b bq)
+                                       => GenericToComponent a (G.Constructor n b) where
+  genericToComponent' _ = parentComponent { initialState, render, eval, receiver }
+    where
+    initialState :: a -> a
+    initialState = id
+
+    render :: ∀ m. a -> ParentHTML (QueryGeneric a) bq Unit m
+    render value =
+      H.slot unit (toComponent (Proxy :: Proxy b)) value' handle
+      where value' = case G.from value of G.Constructor b -> b
+            handle = E.input $ ChangeGeneric <<< G.to <<< G.Constructor
+
+    eval :: ∀ m. QueryGeneric a ~> ParentDSL a (QueryGeneric a) bq Unit a m
+    eval (ReceiveGeneric value next) = next <$ State.put value
+    eval (ChangeGeneric value next) = do
+      State.put value
+      raise value
+      pure next
+
+    receiver :: a -> Maybe (QueryGeneric a Unit)
+    receiver = E.input ReceiveGeneric
+
 instance toComponentArgument :: (ToComponent a aq)
                              => ToComponent (G.Argument a) aq where
   toComponent _ = unwrap (dimapProComponent i o (wrap c))
