@@ -26,6 +26,13 @@ module Halogen.Alkali
   , QueryMaybe
 
   , QueryColor
+
+  , QueryGeneric
+  , genericToComponent
+  , class GenericToComponent
+  , genericToComponent'
+  , class GenericToComponentArgument
+  , genericToComponentArgument'
   ) where
 
 import Color (Color)
@@ -35,6 +42,7 @@ import Data.Array as Array
 import Data.Const (Const)
 import Data.Either (Either)
 import Data.Functor.Coproduct (Coproduct)
+import Data.Generic.Rep as G
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe, isJust)
 import Data.String as String
@@ -419,3 +427,23 @@ instance toComponentColor :: ToComponent Color QueryColor where
 
     receiver :: Color -> Maybe (QueryColor Unit)
     receiver = E.input ReceiveColor
+
+--------------------------------------------------------------------------------
+
+data QueryGeneric a n
+  = QueryGeneric Void
+
+genericToComponent
+  :: ∀ a r m
+   . ( G.Generic a r
+     , GenericToComponent a r
+     )
+  => Proxy a
+  -> Component HTML (QueryGeneric a) a a m
+genericToComponent _ = genericToComponent' (Proxy :: Proxy r)
+
+class GenericToComponent a r where
+  genericToComponent' :: ∀ m. Proxy r -> Component HTML (QueryGeneric a) a a m
+
+class GenericToComponentArgument r where
+  genericToComponentArgument' :: ∀ m. Proxy r -> Component HTML (QueryGeneric r) r r m
