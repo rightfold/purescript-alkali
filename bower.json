@@ -15,6 +15,10 @@
     "purescript-strings": "^2.1.0",
     "purescript-colors": "^2.2.0",
     "purescript-arrays": "^3.2.1",
-    "purescript-generics-rep": "^4.1.0"
+    "purescript-generics-rep": "^4.1.0",
+    "purescript-free": "^3.5.1",
+    "purescript-freeap": "^2.0.0",
+    "purescript-newtype": "^1.3.0",
+    "purescript-profunctor": "^2.0.0"
   }
 }
