@@ -31,8 +31,6 @@ module Halogen.Alkali
   , genericToComponent
   , class GenericToComponent
   , genericToComponent'
-  , class GenericToComponentArgument
-  , genericToComponentArgument'
   ) where
 
 import Color (Color)
@@ -446,13 +444,9 @@ genericToComponent _ = genericToComponent' (Proxy :: Proxy r)
 class GenericToComponent a r where
   genericToComponent' :: ∀ m. Proxy r -> Component HTML (QueryGeneric a) a a m
 
-class GenericToComponentArgument r where
-  genericToComponentArgument' :: ∀ m. Proxy r -> Component HTML (QueryGeneric r) r r m
-
-instance genericToComponentArgumentArgument :: (ToComponent a aq)
-                                            => GenericToComponentArgument (G.Argument a) where
-  genericToComponentArgument' _ =
-    parentComponent { initialState, render, eval, receiver }
+instance toComponentArgument :: (ToComponent a aq)
+                             => ToComponent (G.Argument a) (QueryGeneric (G.Argument a)) where
+  toComponent _ = parentComponent { initialState, render, eval, receiver }
     where
     initialState :: G.Argument a -> G.Argument a
     initialState = id
@@ -470,4 +464,26 @@ instance genericToComponentArgumentArgument :: (ToComponent a aq)
       pure next
 
     receiver :: G.Argument a -> Maybe (QueryGeneric (G.Argument a) Unit)
+    receiver = E.input ReceiveGeneric
+
+instance toComponentProduct :: (ToComponent f fq, ToComponent s sq)
+                            => ToComponent (G.Product f s) (QueryGeneric (G.Product f s)) where
+  toComponent _ = parentComponent { initialState, render, eval, receiver }
+    where
+    initialState :: G.Product f s -> G.Product f s
+    initialState = id
+
+    render :: ∀ m. G.Product f s -> ParentHTML (QueryGeneric (G.Product f s)) (QueryTuple f s) Unit m
+    render (G.Product f s) =
+      H.slot unit (toComponent (Proxy :: Proxy (Tuple f s))) (Tuple f s) handle
+      where handle = E.input $ ChangeGeneric <<< \(Tuple f' s') -> G.Product f' s'
+
+    eval :: ∀ m. QueryGeneric (G.Product f s) ~> ParentDSL (G.Product f s) (QueryGeneric (G.Product f s)) (QueryTuple f s) Unit (G.Product f s) m
+    eval (ReceiveGeneric value next) = next <$ State.put value
+    eval (ChangeGeneric value next) = do
+      State.put value
+      raise value
+      pure next
+
+    receiver :: G.Product f s -> Maybe (QueryGeneric (G.Product f s) Unit)
     receiver = E.input ReceiveGeneric
